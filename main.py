@@ -59,24 +59,6 @@ class SelfDriving():
         ride = Ride(id, s_point, e_point, s_t, e_t,dist(s_point, e_point))
         self.rides.append(ride)
 
-    def compute_total_score(self):
-        return sum([self.compute_score_for_vehicule(veh) for veh in self.vehicules])
-
-    def compute_score_for_vehicule(self, v: Vehicule):
-        score = 0
-        t = 0
-        current_pos = Point(0, 0)
-        for r in v.rides:
-            start_t = max(r.time_start, t + (dist(current_pos, r.pos_start)))
-            end_time = start_t + r.ride_score
-            if end_time <= r.time_end and end_time <= self.max_time:
-                score += r.ride_score
-                if start_t == r.time_start:
-                    score += self.bonus
-            t = end_time
-            current_pos = r.pos_end
-        return score
-
     def determine_max_score_for_vehicule(self, v: Vehicule):
         max_score = -1
         max_ride = None
@@ -97,30 +79,34 @@ class SelfDriving():
         #     print(max_score, max_ride, end_time)
         return max_score, max_ride, end_time
 
+    def can_he_get_on_time(self, v:Vehicule, r:Ride):
+        start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
+        end_time = start_t + r.ride_score
+        if end_time <= r.time_end and end_time <= self.max_time:
+            return True
+        return False
+
     def determine_total_max_score(self):
-        max_vehicule = None
-        total_max_score = -1
-        total_max_ride = None
-        total_end_time = 0
         self.current_time = min([v.next_available_time for v in self.vehicules])
-        # print (self.current_time)
         if self.current_time < self.max_time:
             vehicules = [v for v in self.vehicules if v.next_available_time == self.current_time]
-            for v in vehicules:
-                self.can_he_bonus(v,)
-                current_max_score, current_max_ride, end_time = self.determine_max_score_for_vehicule(v)
-                if current_max_score > total_max_score:
-                    max_vehicule = v
-                    total_max_score = current_max_score
-                    total_max_ride = current_max_ride
-                    total_end_time = end_time
-                # print(total_max_score, total_max_ride)
-            if vehicules != [] and total_max_score > 0:
-                self.update_vehicule(max_vehicule,total_max_ride, end_time)
-                print(len(self.rides))
-                self.rides.remove(total_max_ride)
-            else:
-                self.current_time = self.max_time +1
+            for r in self.rides:
+                for v in vehicules:
+                    if self.can_he_bonus(v,r):
+                        start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
+                        end_time = start_t + r.ride_score
+                        self.update_vehicule(v, r, end_time)
+                        # print('BONUS : ' + str(len(self.rides)))
+                        self.rides.remove(r)
+                        return
+                    if self.can_he_get_on_time(v,r):
+                        start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
+                        end_time = start_t + r.ride_score
+                        self.update_vehicule(v, r, end_time)
+                        # print(len(self.rides))
+                        self.rides.remove(r)
+                        return
+            self.current_time = self.max_time +1
 
 
     def update_vehicule(self, v: Vehicule, ride:Ride, next_available_time):
@@ -129,7 +115,7 @@ class SelfDriving():
         v.rides.append(str(ride.id))
 
     def can_he_bonus(self, v:Vehicule, r:Ride):
-        if r.time_start < self.current_time + r.ride_score:
+        if r.time_start < self.current_time + dist(v.current_pos,r.pos_start):
             return False
         return True
 
