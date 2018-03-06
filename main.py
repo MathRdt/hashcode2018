@@ -1,4 +1,5 @@
 import sys
+import operator
 from typing import Dict, Tuple, List
 from dataclasses import dataclass
 
@@ -28,6 +29,7 @@ class Ride():
     time_start: int
     time_end: int
     ride_score:int
+    global_score:int
 
 @dataclass
 class Vehicule():
@@ -56,28 +58,33 @@ class SelfDriving():
     def add_ride(self, s_x, s_y, e_x, e_y, s_t, e_t, id):
         s_point = Point(s_x, s_y)
         e_point = Point(e_x, e_y)
-        ride = Ride(id, s_point, e_point, s_t, e_t,dist(s_point, e_point))
+        ride = Ride(id, s_point, e_point, s_t, e_t,dist(s_point, e_point),0)
         self.rides.append(ride)
 
-    def determine_max_score_for_vehicule(self, v: Vehicule):
-        max_score = -1
-        max_ride = None
-        max_ride_end_time = 0
-        for r in self.rides:
-            score = 0
-            start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
-            end_time = start_t + r.ride_score
-            if end_time <= r.time_end and end_time <= self.max_time:
-                score += r.ride_score
-                if start_t == r.time_start:
-                    score += self.bonus
-            if score > max_score:
-                max_score = score
-                max_ride = r
-                max_ride_end_time = end_time
-        # if self.current_time > 0 :
-        #     print(max_score, max_ride, end_time)
-        return max_score, max_ride, end_time
+    # def determine_max_score_for_vehicule(self, v: Vehicule):
+    #     max_score = -1
+    #     max_ride = None
+    #     max_ride_end_time = 0
+    #     for r in self.rides:
+    #         score = 0
+    #         start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
+    #         end_time = start_t + r.ride_score
+    #         if end_time <= r.time_end and end_time <= self.max_time:
+    #             score += r.ride_score
+    #             if start_t == r.time_start:
+    #                 score += self.bonus
+    #         if score > max_score:
+    #             max_score = score
+    #             max_ride = r
+    #             max_ride_end_time = end_time
+    #     # if self.current_time > 0 :
+    #     #     print(max_score, max_ride, end_time)
+    #     return max_score, max_ride, end_time
+
+    def can_he_bonus(self, v:Vehicule, r:Ride):
+        if r.time_start < self.current_time + dist(v.current_pos,r.pos_start):
+            return False
+        return True
 
     def can_he_get_on_time(self, v:Vehicule, r:Ride):
         start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
@@ -93,17 +100,14 @@ class SelfDriving():
             for r in self.rides:
                 for v in vehicules:
                     if self.can_he_bonus(v,r):
-                        start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
-                        end_time = start_t + r.ride_score
+                        end_time = r.time_start + r.ride_score
                         self.update_vehicule(v, r, end_time)
-                        # print('BONUS : ' + str(len(self.rides)))
                         self.rides.remove(r)
                         return
                     if self.can_he_get_on_time(v,r):
                         start_t = max(r.time_start, self.current_time + (dist(v.current_pos, r.pos_start)))
                         end_time = start_t + r.ride_score
                         self.update_vehicule(v, r, end_time)
-                        # print(len(self.rides))
                         self.rides.remove(r)
                         return
             self.current_time = self.max_time +1
@@ -114,14 +118,34 @@ class SelfDriving():
         v.current_pos = ride.pos_end
         v.rides.append(str(ride.id))
 
-    def can_he_bonus(self, v:Vehicule, r:Ride):
-        if r.time_start < self.current_time + dist(v.current_pos,r.pos_start):
-            return False
-        return True
-
     def algo_global(self):
-        self.rides = sorted(self.rides,key=lambda ride: -ride.ride_score)
-        # print([r.ride_score for r in self.rides])
+        # rides_by_score = sorted(self.rides,key=lambda ride: -ride.ride_score)
+        # rides_by_start = sorted(self.rides,key=lambda ride: ride.time_start)
+        # rides_by_end = sorted(self.rides,key=lambda ride: ride.time_end)
+        # print('score du plus haut au plus bas')
+        # print([r.id for r in rides_by_score])
+        # print('start du plus court au plus long')
+        # print([r.id for r in rides_by_start])
+        # print('end du plus court au plus long')
+        # print([r.id for r in rides_by_end])
+
+        ride_max_score = max(r.ride_score for r in self.rides)
+        ride_latest_end = min(r.time_end for r in self.rides)
+        ride_latest_start = max(r.time_start for r in self.rides)
+
+        # print(ride_max_score)
+        # print(ride_latest_end)
+        # print(ride_latest_start)
+
+        for r in self.rides:
+            # print(r.ride_score/ride_max_score)
+            # print((ride_latest_start -r.time_start)/ride_latest_start)
+            # print(- r.time_end/ride_latest_end)
+
+            r.global_score = r.ride_score/ride_max_score - r.time_end/ride_latest_end #+ (ride_latest_start -r.time_start)/ride_latest_start
+        # print(self.rides)
+
+        self.rides = sorted(self.rides,key=lambda ride: -ride.global_score)
         while self.current_time < self.max_time and self.rides != []:
             self.determine_total_max_score()
 
