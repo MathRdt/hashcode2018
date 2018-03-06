@@ -136,13 +136,14 @@ class SelfDriving():
         # print(ride_max_score)
         # print(ride_latest_end)
         # print(ride_latest_start)
-
+        ride_factor = 0.7
+        latest_factor = 0.3
         for r in self.rides:
             # print(r.ride_score/ride_max_score)
             # print((ride_latest_start -r.time_start)/ride_latest_start)
             # print(- r.time_end/ride_latest_end)
 
-            r.global_score = r.ride_score/ride_max_score - r.time_end/ride_latest_end #+ (ride_latest_start -r.time_start)/ride_latest_start
+            r.global_score = ride_factor*(r.ride_score/ride_max_score) - latest_factor*(r.time_end/ride_latest_end) #+ (ride_latest_start -r.time_start)/ride_latest_start
         # print(self.rides)
 
         self.rides = sorted(self.rides,key=lambda ride: -ride.global_score)
